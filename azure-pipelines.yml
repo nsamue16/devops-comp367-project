@@ -1,0 +1,102 @@
+trigger:
+- main
+
+pool:
+  name: MyLocalPool
+
+variables:
+- group: SonarCloud
+
+stages:
+
+- stage: Build
+  displayName: 'Build Stage'
+  jobs:
+  - job: BuildJob
+    displayName: 'Build and Test'
+    steps:
+
+    - task: SonarCloudPrepare@2
+      displayName: 'Prepare SonarCloud Analysis'
+      inputs:
+        SonarCloud: 'SonarCloudConnection'
+        organization: 'nsamue16'
+        scannerMode: 'dotnet'
+        projectKey: 'devops-comp367-project'
+        projectName: 'devops-comp367-project'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Compile Project'
+      inputs:
+        command: 'build'
+        projects: '**/*.sln'
+        arguments: '--configuration Release'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Run Unit Tests'
+      inputs:
+        command: 'test'
+        projects: '**/DevOpsProject.Tests/*.csproj'
+        arguments: '--configuration Release --collect:"XPlat Code Coverage"'
+
+    - task: SonarCloudAnalyze@2
+      displayName: 'Run SonarCloud Analysis'
+
+    - task: SonarCloudPublish@2
+      displayName: 'Publish SonarCloud Results'
+      inputs:
+        pollingTimeoutSec: '300'
+
+- stage: Deliver
+  displayName: 'Deliver Stage'
+  dependsOn: Build
+  jobs:
+  - job: DeliverJob
+    steps:
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish Artifact'
+      inputs:
+        command: 'publish'
+        publishWebProjects: true
+        arguments: '--configuration Release --output $(Build.ArtifactStagingDirectory)'
+    - task: PublishBuildArtifacts@1
+      displayName: 'Upload Artifact'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+
+- stage: DeployDev
+  displayName: 'Deploy to Dev'
+  dependsOn: Deliver
+  jobs:
+  - job: DevJob
+    steps:
+    - script: echo Deploying to Dev environment
+      displayName: 'Deploy to Dev'
+
+- stage: DeployQAT
+  displayName: 'Deploy to QAT'
+  dependsOn: DeployDev
+  jobs:
+  - job: QATJob
+    steps:
+    - script: echo Deploying to QAT environment
+      displayName: 'Deploy to QAT'
+
+- stage: DeployStaging
+  displayName: 'Deploy to Staging'
+  dependsOn: DeployQAT
+  jobs:
+  - job: StagingJob
+    steps:
+    - script: echo Deploying to Staging environment
+      displayName: 'Deploy to Staging'
+
+- stage: DeployProduction
+  displayName: 'Deploy to Production'
+  dependsOn: DeployStaging
+  jobs:
+  - job: ProductionJob
+    steps:
+    - script: echo Deploying to Production environment
+      displayName: 'Deploy to Production'
