@@ -24,6 +24,8 @@ stages:
         scannerMode: 'dotnet'
         projectKey: 'devops-comp367-project'
         projectName: 'devops-comp367-project'
+        extraProperties: |
+          sonar.token=$(SONAR_TOKEN)
 
     - task: DotNetCoreCLI@2
       displayName: 'Compile Project'
